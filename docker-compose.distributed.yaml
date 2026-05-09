@@ -1,0 +1,121 @@
+# Source-built Osmedeus distributed stack.
+#
+# Start from the repository root:
+#   docker compose -f docker-compose.distributed.yaml up --build -d
+#
+# UI/API: http://localhost:8002
+# Default login: admin / admin
+
+x-osmedeus-app: &osmedeus-app
+  image: osmedeus:source-distributed
+  restart: unless-stopped
+  environment:
+    TZ: ${TZ:-UTC}
+  volumes:
+    - osmedeus-base:/root/osmedeus-base
+    - osmedeus-workspaces:/root/workspaces-osmedeus
+    - ./build/docker/osm-settings.distributed.yaml:/root/osmedeus-base/osm-settings.yaml:ro
+  networks:
+    - osmedeus-network
+
+x-osmedeus-worker: &osmedeus-worker
+  <<: *osmedeus-app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    server:
+      condition: service_healthy
+  command: ["worker", "join", "--redis-url", "redis://redis:6379/0"]
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2G
+      reservations:
+        cpus: "0.5"
+        memory: 512M
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: osmedeus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: osmedeus
+      POSTGRES_PASSWORD: osmedeus
+      POSTGRES_DB: osmedeus
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - osmedeus-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osmedeus -d osmedeus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - osmedeus-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: osmedeus-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - osmedeus-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - osmedeus-network
+
+  server:
+    <<: *osmedeus-app
+    build:
+      context: .
+      dockerfile: build/docker/Dockerfile
+    pull_policy: build
+    container_name: osmedeus-server
+    ports:
+      - "${OSM_SERVER_PORT:-8002}:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["serve", "--master", "--redis-url", "redis://redis:6379/0", "--no-queue-polling"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  worker-1:
+    <<: *osmedeus-worker
+    container_name: osmedeus-worker-1
+    pull_policy: never
+
+  worker-2:
+    <<: *osmedeus-worker
+    container_name: osmedeus-worker-2
+    pull_policy: never
+
+  worker-3:
+    <<: *osmedeus-worker
+    container_name: osmedeus-worker-3
+    pull_policy: never
+
+volumes:
+  osmedeus-base:
+  osmedeus-workspaces:
+  osmedeus-postgres:
+  osmedeus-redis:
+
+networks:
+  osmedeus-network:
+    driver: bridge

@@ -128,7 +128,12 @@ docker run --rm j3ssie/osmedeus:latest --help
 # Run a scan
 docker run --rm -v $(pwd)/output:/root/workspaces-osmedeus \
     j3ssie/osmedeus:latest run -f general -t example.com
+
+# Start distributed scanning mode from source
+docker compose -f docker-compose.distributed.yaml up --build -d
 ```
+
+The distributed Compose stack builds the Osmedeus image from this checkout and starts the API/UI master server, Redis, PostgreSQL, and three worker containers. The server runs with queue polling disabled so scans are executed by workers.
 
 For more CLI usage and example commands, refer to the [CLI Reference](https://docs.osmedeus.org/getting-started/cli).
 

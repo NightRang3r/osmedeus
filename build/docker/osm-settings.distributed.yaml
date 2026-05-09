@@ -1,0 +1,67 @@
+# Osmedeus distributed Docker configuration.
+# This file is mounted by ../../docker-compose.distributed.yaml.
+
+base_folder: /root/osmedeus-base
+
+environments:
+  external_binaries_path: "{{base_folder}}/external-binaries"
+  external_data: "{{base_folder}}/external-data"
+  external_configs: "{{base_folder}}/external-configs"
+  workspaces: /root/workspaces-osmedeus
+  workflows: "{{base_folder}}/workflows"
+  snapshot: "{{base_folder}}/snapshot"
+  markdown_report_templates: "{{base_folder}}/markdown-report-templates"
+  external_agent_configs: "{{base_folder}}/external-agent-configs"
+  external_scripts: "{{base_folder}}/external-scripts"
+
+database:
+  db_engine: postgresql
+  host: postgres
+  port: 5432
+  username: osmedeus
+  password: osmedeus
+  db_name: osmedeus
+  connection_timeout: 60
+  ssl_mode: disable
+
+server:
+  host: "0.0.0.0"
+  port: 8002
+  ui_path: "{{base_folder}}/ui/"
+  workspace_prefix_key: ""
+  simple_user_map_key:
+    admin: "admin"
+  jwt:
+    secret_signing_key: "CHANGE_ME_SOURCE_DISTRIBUTED_JWT_SECRET_32_CHARS"
+    expiration_minutes: 1440
+  license: "open-source"
+  enable_metrics: true
+  cors_allowed_origins: "reflect-origin"
+  enabled_auth_api: false
+  auth_api_key: ""
+  enable_trigger_via_webhook: false
+
+scan_tactic:
+  aggressive: 50
+  default: 20
+  gently: 5
+
+redis:
+  host: redis
+  port: 6379
+  username: ""
+  password: ""
+  db: 0
+  connection_timeout: 60
+
+global_vars: {}
+
+notification:
+  enabled: false
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: 0
+
+storage:
+  enabled: false

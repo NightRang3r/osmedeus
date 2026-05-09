@@ -15,6 +15,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build \
     -ldflags "-X main.BuildTime=${BUILD_TIME} -X main.CommitHash=${COMMIT_HASH}" \
     -o /osmedeus ./cmd/osmedeus
+RUN go install github.com/tomnomnom/assetfinder@latest
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
@@ -27,6 +28,8 @@ RUN apt-get update && \
             git \
             curl \
             wget \
+            unzip \
+            jq \
             ca-certificates \
             python3 \
             python3-pip \
@@ -43,12 +46,17 @@ WORKDIR /root
 
 # Copy binary from builder
 COPY --from=builder /osmedeus /usr/local/bin/osmedeus
+COPY --from=builder /go/bin/assetfinder /usr/local/bin/assetfinder
 
 # Initialize osmedeus base folder with preset workflows
 RUN osmedeus install base --preset
 
-# This is for sast test
-RUN osmedeus install binary --name trivy --name semgrep --name kingfisher --name bearer
+# Install the default workflow toolchain. Keep the SAST tools explicit because
+# they are used by tests and are not all part of the default registry set.
+RUN osmedeus install binary --all && \
+    osmedeus install binary --name trivy --name semgrep --name kingfisher --name bearer && \
+    ln -sf /root/osmedeus-base/external-binaries/pd-httpx /root/osmedeus-base/external-binaries/httpx && \
+    ln -sf /usr/local/bin/assetfinder /root/osmedeus-base/external-binaries/assetfinder
 
 # Set up PATH for external binaries
 ENV PATH="/root/osmedeus-base/external-binaries:${PATH}"
