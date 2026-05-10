@@ -118,13 +118,18 @@ func createRunRecord(ctx context.Context, _ *config.Config, workflow *core.Workf
 	// Compute workspace from target and params
 	workspace := computeWorkspace(target, params)
 
+	initialStatus := "running"
+	if runMode == "distributed" {
+		initialStatus = "queued"
+	}
+
 	run := &database.Run{
 		RunUUID:      runID,
 		WorkflowName: workflow.Name,
 		WorkflowKind: string(workflow.Kind),
 		Target:       target,
 		Params:       paramsInterface,
-		Status:       "running",
+		Status:       initialStatus,
 		TriggerType:  triggerType,
 		RunGroupID:   jobID,
 		StartedAt:    &now,
